@@ -49,5 +49,8 @@ func main() {
 func run(day, part int, input []string) {
     s := solutions.Solutions{}
     m := reflect.ValueOf(s).MethodByName(fmt.Sprintf("Day%d_%d", day, part))
-    m.Call([]reflect.Value{ reflect.ValueOf(input) })
+    ret := m.Call([]reflect.Value{ reflect.ValueOf(input) })
+    for _, val := range ret {
+	fmt.Println(val)
+    }
 }
