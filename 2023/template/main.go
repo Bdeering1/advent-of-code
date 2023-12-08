@@ -62,4 +62,12 @@ func main() {
     } else {
 	fmt.Printf("wrote %d bytes to %s\n", n, path)
     }
+
+    input_path := fmt.Sprintf("input/day%d.txt", *day)
+    if f, err := os.OpenFile(input_path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666); err != nil {
+	fmt.Printf("Unable to create %s", input_path)
+    } else {
+	fmt.Printf("Created %s\n", input_path)
+	f.Close()
+    }
 }
