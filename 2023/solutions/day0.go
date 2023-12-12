@@ -1,3 +1,3 @@
 package solutions
 
-type Solutions struct {}
+type Solutions struct{}
