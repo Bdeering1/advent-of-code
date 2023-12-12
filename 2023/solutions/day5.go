@@ -1,12 +1,11 @@
 package solutions
 
 import (
-	"fmt"
-	"math"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
+    "math"
+    "regexp"
+    "sort"
+    "strconv"
+    "strings"
 )
 
 func (Solutions) Day5_1(input []string) int {
@@ -62,90 +61,71 @@ func (Solutions) Day5_1(input []string) int {
 
 func (Solutions) Day5_2(input []string) int {
     num_pat := regexp.MustCompile("[0-9]+")
+    num_pair := regexp.MustCompile("[0-9]+ [0-9]+")
 
-    min_locs := []int64{}
-    var wg sync.WaitGroup
-    receiver := func(channel <-chan int64) {
-	for {
-	    val := <- channel
-	    fmt.Printf("received %d\n", val)
-	    if val == -1 {
-		break
-	    }
-	    min_locs = append(min_locs, val)
-	}
+    // gather seed + location ranges
+    seed_ranges := [][]int64{}
+    for _, seed_str := range num_pair.FindAllString(input[0], -1) {
+	toks := strings.Split(seed_str, " ")
+	start, _ := strconv.ParseInt(toks[0], 10, 64)
+	range_len, _ := strconv.ParseInt(toks[1], 10, 64)
+	seed_ranges = append(seed_ranges, []int64{ start, range_len })
     }
-    channel := make(chan int64)
-    go receiver(channel)
+    loc_ranges := [][]int64{}
+    for i := len(input) - 2; i >= 0; i-- {
+	if strings.Contains(input[i], ":") {
+	    break
+	}
+	nums := num_pat.FindAllString(input[i], 3)
+	start, _ := strconv.ParseInt(nums[0], 10, 64)
+	range_len, _ := strconv.ParseInt(nums[2], 10, 64)
+	loc_ranges = append(loc_ranges, []int64{start, range_len})
+    }
 
-    var seed_start int64 = -1
-    for _, seed_str := range num_pat.FindAllString(input[0], -1) {
-	num, _ := strconv.ParseInt(seed_str, 10, 64)
+    // starting from the smallest location strings, transform backwards through each map until a seed is found
+    sort.Slice(loc_ranges, func(i, j int) bool { return loc_ranges[i][0] < loc_ranges[j][0] })
+    for _, loc_range := range loc_ranges {
+	loc_start := loc_range[0]
 
-	if seed_start == -1 {
-	    seed_start = num
-	} else {
-	    s_start := seed_start
-	    seed_range := num
-	    channel := channel
+	var i int64
+	for i = 0; i < loc_range[1]; i++ {
+	    map_input := loc_start + i 
+	    modified := false
 
-	    wg.Add(1)
-	    go func() {
-		var min_loc int64 = math.MaxInt64
-		fmt.Printf("Starting range %d + %d\n", s_start, seed_range)
-		defer wg.Done()
+	    // run input through each map
+	    for i := len(input) - 2; i > 0; i-- {
+		line := input[i]
 
-		// loop through seed range
-		var i int64
-		for i = 0; i < seed_range; i++ {
-		    map_input := s_start + i
-		    modified := false
-
-		    // run input through each map
-		    for _, line := range input[2:] {
-			if strings.Contains(line, ":") {
-			    // start map
-			    modified = false
-			    continue
-			}
-			if modified || len(line) == 0 {
-			    // end map
-			    continue
-			}
-
-			nums := num_pat.FindAllString(line, 3)
-			dest_start, _ := strconv.ParseInt(nums[0], 10, 64)
-			input_start, _ := strconv.ParseInt(nums[1], 10, 64)
-			range_len, _ := strconv.ParseInt(nums[2], 10, 64)
-
-			// transform input if it falls within input range
-			if map_input >= input_start && map_input < input_start + range_len {
-			    map_input = dest_start + (map_input - input_start)
-			}
-		    }
-		    // find lowest location #
-		    if map_input < min_loc {
-			min_loc = map_input
-		    }
+		if strings.Contains(line, ":") {
+		    // start map
+		    modified = false
+		    continue
+		}
+		if modified || len(line) == 0 {
+		    // end map
+		    continue
 		}
 
-		channel <- min_loc
-	    }()
+		nums := num_pat.FindAllString(line, 3)
+		input_start, _ := strconv.ParseInt(nums[0], 10, 32)
+		dest_start, _ := strconv.ParseInt(nums[1], 10, 32)
+		range_len, _ := strconv.ParseInt(nums[2], 10, 32)
 
-	    seed_start = -1
+		// transform input if it falls within input range
+		if map_input >= input_start && map_input < input_start + range_len {
+		    map_input = dest_start + (map_input - input_start)
+		    modified = true
+		}
+	    }
+
+	    // check if there is a matching seed
+	    for _, seed_range := range seed_ranges {
+		if map_input >= seed_range[0] && map_input < seed_range[0] + seed_range[1] {
+		    return int(loc_start)
+		}
+	    }
 	}
     }
 
-    wg.Wait()
-    channel <- -1
-    close(channel)
-
-    var min_loc int64 =  math.MaxInt64
-    for _, loc := range min_locs {
-	if loc < min_loc {
-	    min_loc  = loc
-	}
-    }
-
-    return int(min_loc)
+    return -1
 }
